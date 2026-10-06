@@ -21,6 +21,8 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { Current, Task, Win } from '../types'
 import {
+  adhdRulesText,
+  standaloneAdhdActive,
   bandFor,
   clockTime,
   createdTaskId,
@@ -55,6 +57,10 @@ const now = atom({ plugin: 'focus', key: 'now' } as const, 0)
 
 // The project folder this session runs in; the key parked thoughts are saved under.
 let projectFolder = ''
+
+// The ADHD writing rules for the system prompt, read at session start; empty when they are
+// switched off or the standalone i-have-adhd plugin already adds them.
+let adhdRules = ''
 
 /** Save the parked list for this project. */
 async function saveParked($: EngineInterface, list: readonly string[]) {
@@ -155,8 +161,25 @@ function resultText(ran: unknown): string {
   return typeof result?.text === 'string' ? result.text : ''
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
   on('session.start', async ($, e, next_) => {
+    // The ADHD writing rules: on unless the setting turns them off, and not twice when the
+    // standalone i-have-adhd plugin already adds them.
+    try {
+      adhdRules = ''
+      if (options?.adhdRules !== false) {
+        const configDir =
+          (await $.env.get('CLAUDE_CONFIG_DIR')) ??
+          `${(await $.env.get('HOME')) ?? (await $.env.get('USERPROFILE')) ?? ''}/.claude`
+        const flagExists = await $.fs.exists(`${configDir}/.i-have-adhd-always`).catch(() => false)
+        if (!standaloneAdhdActive(await $.command.list(), flagExists)) {
+          adhdRules = adhdRulesText(String(await $.fs.read(`${$.plugin.root}/skills/i-have-adhd/SKILL.md`)))
+        }
+      }
+    } catch (error) {
+      await report($, 'adhd rules', error)
+    }
+
     // Nothing here may stop the session from starting, so the setup is optional.
     try {
       projectFolder = e.cwd
@@ -189,6 +212,19 @@ export const register: Register = on => {
     $.clock.every(TICK_MS, () => void tick())
 
     return next_(e)
+  })
+
+  // The rules go into every request's system prompt, after what other plugins add.
+  on('prompt.compose', async ($, e, next_) => {
+    const composed = await next_(e)
+    if (!adhdRules) {
+      return composed
+    }
+
+    return {
+      ...composed,
+      sections: [...composed.sections, { id: 'focus:adhd-rules', text: adhdRules, scope: 'session' as const }],
+    }
   })
 
   on('command.run', { command: 'focus-pane' }, async $ => {

@@ -189,3 +189,30 @@ export function bandFor(input: {
 
   return input.next ? { kind: 'next', next: input.next } : { kind: 'missing' }
 }
+
+// ---------------------------------------------------------------------------
+// The ADHD writing rules (bundled from ayghri/i-have-adhd, MIT). They make every reply
+// end with the "Next:" line the band pins, so the plugin works without the standalone skill.
+// ---------------------------------------------------------------------------
+
+/** The skill file as system-prompt text: front matter dropped, with a one-line header. */
+export function adhdRulesText(skillMarkdown: string): string {
+  const body = skillMarkdown.replace(/^---[^\S\r\n]*\r?\n[\s\S]*?\r?\n---[^\S\r\n]*(?:\r?\n|$)/, '').trim()
+
+  return (
+    'ADHD MODE ACTIVE (from the focus plugin). The ruleset below applies to every response. ' +
+    '"stop adhd mode" turns it off for this session; the focus plugin\'s "ADHD writing rules" ' +
+    `setting turns it off for good.\n\n${body}`
+  )
+}
+
+/**
+ * Whether the standalone i-have-adhd plugin already adds the rules: it is installed (its
+ * command is listed by another plugin) and its always-on flag file exists.
+ */
+export function standaloneAdhdActive(
+  commands: ReadonlyArray<{ name: string; plugin?: string }>,
+  flagExists: boolean,
+): boolean {
+  return flagExists && commands.some(command => /i-have-adhd/.test(command.name) && command.plugin !== 'focus')
+}

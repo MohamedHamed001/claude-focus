@@ -4,6 +4,9 @@ A plugin for [Claude Code](https://docs.claude.com/en/docs/claude-code): **focus
 
 Keeps the one next action pinned above the prompt, with time on task, parked thoughts, today's wins and a where-you-left-off recap in a pane.
 
+It bundles the [i-have-adhd](https://github.com/ayghri/i-have-adhd) writing rules, so it works on
+its own: no separate skill to install.
+
 Part of [claude-mods](https://github.com/MohamedHamed001/claude-mods), which lists this plugin and its siblings.
 
 ## Install
@@ -19,13 +22,30 @@ Then start a new session: a session reads its plugins once, when it starts. Upda
 
 - **Claude Code 2.1.28x or newer.** The plugins use function hooks (TypeScript modules the app
   loads), which older versions do not run.
-- **Windows, macOS or Linux.** Process handling is detected per session: PowerShell on Windows,
-  `ps` and `pkill` elsewhere. Developed on Windows; macOS has not been tested yet.
+- **Windows, macOS or Linux.** Developed on Windows; macOS has not been tested yet.
 
 ## What it does
 
-Keeps the one next action in front of you. Built for the "I have ADHD" writing style, where
-every reply ends with a `Next:` line.
+Keeps the one next action in front of you.
+
+### The writing rules
+
+Every session gets the [i-have-adhd](https://github.com/ayghri/i-have-adhd) ruleset in its system
+prompt. It shapes Claude's replies for a reader with ADHD:
+
+1. Lead with the next action, not with context.
+2. Number multi-step work, one bounded action per step.
+3. End with one concrete next action: a closing `Next: …` line. **This is the line the band pins.**
+4. Restate where you are every turn, give specific time estimates, make finished work visible.
+5. No preamble, no recap, no "let me know if…"; tangents become a separate question.
+
+The full text is [`skills/i-have-adhd/SKILL.md`](skills/i-have-adhd/SKILL.md).
+
+| To | Do |
+|---|---|
+| Switch the rules off for one session | Say "stop adhd mode" (or "normal mode") |
+| Switch them off for good | `/config`, then turn off **ADHD writing rules** (the band then only shows a next action when a reply happens to end with `Next:`) |
+| Use the standalone i-have-adhd plugin instead | Keep it installed with its always-on flag; this plugin then does not add the rules a second time |
 
 **Band (one line above the prompt).**
 
@@ -62,5 +82,10 @@ To run your working copy instead of the installed version, add this folder to `C
 ## Licence
 
 MIT, see [LICENSE](LICENSE).
+
+The writing rules in `skills/i-have-adhd/` come from
+[ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd) (0.2.0), copyright (c) 2026 Ayoub
+Ghriss, under the MIT licence kept beside them. They are unchanged;
+[`NOTICE.md`](skills/i-have-adhd/NOTICE.md) says how this plugin uses them.
 
 Not affiliated with Anthropic.
