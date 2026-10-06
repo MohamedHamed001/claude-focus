@@ -47,13 +47,30 @@ The full text is [`skills/i-have-adhd/SKILL.md`](skills/i-have-adhd/SKILL.md).
 | Switch them off for good | `/config`, then turn off **ADHD writing rules** (the band then only shows a next action when a reply happens to end with `Next:`) |
 | Use the standalone i-have-adhd plugin instead | Keep it installed with its always-on flag; this plugin then does not add the rules a second time |
 
-**Band (one line above the prompt).**
+**The next: list (above the prompt).** Merged from
+[next-steps](https://github.com/anthropics/claude-plugins-community) by Thariq Shihipar (MIT):
 
-| State | Line |
+```
+next:
+  1 → run the CAPL export tests and paste the first failing line.
+  2 Summarise the changes
+  3 Review the diff
+  0 dismiss                                   47m  ✓ 4  2 parked  [Focus]
+```
+
+| Item | Comes from |
 |---|---|
-| Normal | `→ Next: run the tests  [Do it]  47m  ✓ 4  2 parked  [Focus]` |
-| Back after 20+ minutes | `Away 2h. You were: fix the frontend start. Next: run the tests  [Do it]  [Focus]` |
-| Reply had no `Next:` line | `No next action in the last reply  [Ask for one]  ...` |
+| 1, with `→` | The `Next:` line at the end of Claude's reply (the writing rules ask for one). No extra model call |
+| 2 and 3 | next-steps: after each reply, one forked request (it shares the prompt cache, so it costs one short reply) suggests likely next prompts, including your skills and slash commands |
+| 0 | Hides the list until the next reply |
+| Last row | Time on task, today's wins, parked thoughts, and the Focus button |
+
+Pressing a number puts that prompt in the prompt box as a draft you can edit and send; nothing
+is sent for you. The top item is also offered as the prompt box's dim Tab-to-take suggestion.
+The list hides while Claude is working.
+
+Settings (`/config`): **Shortest answer to suggest after** (default 80 characters) and **Suggest
+skills and slash commands** (default on).
 
 **Pane (`Focus` button or `/focus-pane`).**
 
@@ -68,7 +85,7 @@ The full text is [`skills/i-have-adhd/SKILL.md`](skills/i-have-adhd/SKILL.md).
 **Commands.** `/park <thought>` sets a thought aside without derailing the current task.
 `/focus-pane` opens the pane.
 
-`Do it`, `Ask for one` and `Start` send a message for you. Nothing else does.
+In the pane, `Do it` and `Start` send a message for you. Nothing else does.
 
 ## Developing
 
@@ -87,5 +104,8 @@ The writing rules in `skills/i-have-adhd/` come from
 [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd) (0.2.0), copyright (c) 2026 Ayoub
 Ghriss, under the MIT licence kept beside them. They are unchanged;
 [`NOTICE.md`](skills/i-have-adhd/NOTICE.md) says how this plugin uses them.
+
+The `next:` list's suggestions come from next-steps by Thariq Shihipar (MIT); see
+[`NOTICE.md`](NOTICE.md).
 
 Not affiliated with Anthropic.

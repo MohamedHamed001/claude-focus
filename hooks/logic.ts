@@ -4,8 +4,6 @@
 import type { Current, Task, Win } from '../types'
 
 const MINUTE_MS = 60_000
-/** A gap this long counts as "you went away and came back". */
-export const BREAK_MS = 20 * MINUTE_MS
 const MAX_NEXT_LENGTH = 160
 const MAX_TITLE_LENGTH = 60
 
@@ -148,46 +146,6 @@ export function overEstimateMs(current: Current | null, now: number): number | n
   const over = now - current.startedAt - current.estimateMinutes * MINUTE_MS
 
   return over > 0 ? over : null
-}
-
-/** What the one-line band should show. */
-export type Band =
-  | { kind: 'hidden' }
-  | { kind: 'idle' }
-  | { kind: 'next'; next: string }
-  | { kind: 'missing' }
-  | { kind: 'welcome'; awayMs: number; title: string | null; next: string | null }
-
-/**
- * Decide the band's form.
- *   hidden   nothing to say yet (no reply, nothing parked, no wins)
- *   idle     no reply yet, but there are parked thoughts or wins: counters only
- *   welcome  you have been away for a while: remind what you were doing
- *   next     the normal case: the pinned next action
- *   missing  the last reply gave no next action
- */
-export function bandFor(input: {
-  hasReply: boolean
-  next: string | null
-  current: Current | null
-  lastActivityAt: number
-  now: number
-  isWorking: boolean
-  hasExtras: boolean
-}): Band {
-  if (!input.hasReply) {
-    // Before the first reply there is no next action to judge, but parked thoughts
-    // or wins carried over from earlier are still worth a line.
-    return input.hasExtras ? { kind: 'idle' } : { kind: 'hidden' }
-  }
-
-  const awayMs = input.now - input.lastActivityAt
-  // Not while Claude is working: a long turn is not you being away.
-  if (!input.isWorking && awayMs >= BREAK_MS && (input.next || input.current)) {
-    return { kind: 'welcome', awayMs, title: input.current?.title ?? null, next: input.next }
-  }
-
-  return input.next ? { kind: 'next', next: input.next } : { kind: 'missing' }
 }
 
 // ---------------------------------------------------------------------------

@@ -23,7 +23,6 @@ import type { Current, Task, Win } from '../types'
 import {
   adhdRulesText,
   standaloneAdhdActive,
-  bandFor,
   clockTime,
   createdTaskId,
   extractEstimateMinutes,
@@ -35,6 +34,8 @@ import {
   updateTask,
   winsToday,
 } from './logic'
+import { MAX_SUGGESTIONS, clean, forkPrompt, parseSuggestions, skillList } from './nextsteps'
+import type { Suggestion } from './nextsteps'
 
 const PANE = 'focus'
 const TICK_MS = 30_000
@@ -61,6 +62,55 @@ let projectFolder = ''
 // The ADHD writing rules for the system prompt, read at session start; empty when they are
 // switched off or the standalone i-have-adhd plugin already adds them.
 let adhdRules = ''
+
+// The "next:" list. Plain module variables, as in next-steps: a reload resets them, which is
+// fine. `suggestions` is next-steps' fork result for the latest reply; `isDismissed` hides
+// the list until the next reply.
+type SuggestionView = { kind: 'hidden' } | { kind: 'loading'; turnId: string } | { kind: 'offer'; items: Suggestion[] }
+let suggestions: SuggestionView = { kind: 'hidden' }
+let isDismissed = false
+// Item 1 (Claude's own next action) plus next-steps' suggestions, at most this many.
+const MAX_ITEMS = MAX_SUGGESTIONS
+const NEXT_LABEL_MAX = 72
+const PROMPT_MAX = 600
+
+/** Put a prompt in the prompt box as the person's draft, to edit and send. */
+function fill($: EngineInterface, text: string) {
+  isDismissed = true
+  $.ui.invalidate('ui.render')
+  void $.prompt.fill({ text }).then(
+    r => r.isFilled || $.ui.toast('Could not fill the prompt box'),
+    error => $.ui.toast(`Could not fill: ${String(error)}`),
+  )
+}
+
+/**
+ * After a reply: ask a fork of the session for likely next prompts (next-steps). The fork
+ * shares the prompt cache, so it costs one short reply. Detached: the turn never waits.
+ */
+function suggestNext($: EngineInterface, turnId: string, action: string | null, options: Record<string, unknown>) {
+  suggestions = { kind: 'loading', turnId }
+  $.ui.invalidate('ui.render')
+  void (async () => {
+    let items: Suggestion[] = []
+    try {
+      const commands = await $.command.list().catch(() => null)
+      const known = commands === null ? null : new Set(commands.map(command => command.name))
+      const skills = options.suggestSkills !== false && commands !== null ? skillList(commands) : ''
+      const reply = await $.model.fork({ prompt: forkPrompt(skills) })
+      items = reply.isAnswered ? parseSuggestions(reply.text, known) : []
+    } catch {
+      // No suggestions this time; Claude's own next action still shows.
+    }
+    // A newer turn started (or another completed) while we waited: drop ours.
+    if (suggestions.kind !== 'loading' || suggestions.turnId !== turnId) return
+    suggestions = items.length === 0 ? { kind: 'hidden' } : { kind: 'offer', items }
+    $.ui.invalidate('ui.render')
+    // The top item is also the composer's dim Tab-to-take ghost text.
+    const top = action ?? items[0]?.prompt
+    if (top) void $.prompt.suggest({ text: top }).catch(() => undefined)
+  })()
+}
 
 /** Save the parked list for this project. */
 async function saveParked($: EngineInterface, list: readonly string[]) {
@@ -254,6 +304,15 @@ export const register: Register = (on, options) => {
     return next_(e)
   })
 
+  // A new turn hides the list: it was for the previous reply.
+  on('turn.start', async ($, e, next_) => {
+    suggestions = { kind: 'hidden' }
+    isDismissed = false
+    $.ui.invalidate('ui.render')
+
+    return next_(e)
+  })
+
   on('turn.complete', async ($, e, next_) => {
     const result = await next_(e)
 
@@ -261,8 +320,13 @@ export const register: Register = (on, options) => {
     if (!e.agentId) {
       try {
         await onReply($, e.answer)
+        isDismissed = false
+        const minChars = typeof options?.minAnswerChars === 'number' ? options.minAnswerChars : 80
+        if (e.reason === 'answer' && e.answer.trim().length >= minChars) {
+          suggestNext($, e.turnId, await read($, next), options ?? {})
+        }
       } catch (error) {
-      await report($, 'turn.complete', error)
+        await report($, 'turn.complete', error)
         // Same rule: reading the reply must not affect the turn.
       }
     }
@@ -313,87 +377,80 @@ export const register: Register = (on, options) => {
     return ran
   })
 
-  // The band: one line, drawn above whatever other mods draw here.
-  //
-  // Every mod's band line uses the same three columns so the lines stack neatly:
-  //   [ 2-cell icon ] [ text, takes the free space ] [ counters and buttons ]
-  // The text column growing is what pushes the buttons to the right edge.
+  // The band: one "next:" list, merged from next-steps (MIT, see ../NOTICE.md). Item 1 is
+  // the Next: line from Claude's own reply (no extra model call); the rest are next-steps'
+  // suggestions from one forked request. A press puts the prompt in the prompt box as an
+  // editable draft; 0 dismisses. The last row carries the counters and the Focus button.
+  // Drawn under what other mods draw, nearest the prompt.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next_) => {
     const beneath = await next_(e)
     if (e.props.hasSurvey) {
       return beneath
     }
 
+    const action = await read($, next)
     const task = await read($, current)
     const time = await read($, now)
     const todayWins = await read($, wins)
     const parkedList = await read($, parked)
-    const band = bandFor({
-      hasReply: await read($, hasReply),
-      next: await read($, next),
-      current: task,
-      lastActivityAt: await read($, lastActivityAt),
-      now: time,
-      isWorking: e.props.isWorking,
-      hasExtras: todayWins.length > 0 || parkedList.length > 0,
-    })
-    if (band.kind === 'hidden') {
+    const { Box, Button, Text } = $.ui.resolve(e)
+
+    const isListShown = !e.props.isWorking && !isDismissed
+    const items: Array<{ label: string; prompt: string }> = []
+    if (isListShown && action) {
+      items.push({ label: `→ ${clean(action, NEXT_LABEL_MAX)}`, prompt: clean(action, PROMPT_MAX) })
+    }
+    if (isListShown && suggestions.kind === 'offer') {
+      for (const item of suggestions.items) {
+        if (items.length < MAX_ITEMS && !items.some(one => one.prompt === item.prompt)) items.push(item)
+      }
+    }
+    const isLoading = isListShown && suggestions.kind === 'loading'
+    const hasCounters = Boolean(task) || todayWins.length > 0 || parkedList.length > 0
+    if (items.length === 0 && !isLoading && !hasCounters) {
       return beneath
     }
 
-    const { Box, Button, Text } = $.ui.resolve(e)
-    const action = band.kind === 'next' || band.kind === 'welcome' ? band.next : null
-
     return (
-      <Box flexDirection="column" rowGap={1}>
-        {/* Its own filled card, one per plugin, so stacked bands read as separate. */}
-        <Box columnGap={1} alignItems="center" backgroundColor="userMessageBackground" paddingX={1}>
-          <Box width={2}>
-            {band.kind === 'missing' ? <Text color="warning">!</Text> : <Text dimColor>→</Text>}
-          </Box>
-
-          <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
-            {band.kind === 'next' && <Text wrap="truncate-end">Next: {band.next}</Text>}
-            {band.kind === 'idle' && <Text dimColor>No next action yet</Text>}
-            {band.kind === 'missing' && (
-              <Text color="warning" wrap="truncate-end">
-                No next action in the last reply
-              </Text>
-            )}
-            {band.kind === 'welcome' && (
-              <Text wrap="truncate-end">
-                Away {formatDuration(band.awayMs)}.
-                {band.title ? ` You were: ${band.title}.` : ''}
-                {band.next ? ` Next: ${band.next}` : ''}
-              </Text>
-            )}
-          </Box>
-
-          {/* The three counters. Each is left out when it has nothing to say. They keep their
-              width (no shrinking): only the next action beside them gets shortened. */}
-          <Box flexShrink={0} columnGap={1}>
-            {task && <Text dimColor>{formatDuration(time - task.startedAt)}</Text>}
-            {todayWins.length > 0 && <Text color="success">✓ {todayWins.length}</Text>}
-            {parkedList.length > 0 && <Text dimColor>{parkedList.length} parked</Text>}
-          </Box>
-
-          {action && (
-            <Button key="do-it" label="Do it" variant="primary" onPress={() => send($, action)} />
-          )}
-          {band.kind === 'missing' && (
+      <Box flexDirection="column">
+        {beneath}
+        <Box marginTop={1} />
+        {(items.length > 0 || isLoading) && <Text dimColor>next:</Text>}
+        {items.map((item, index) => (
+          <Box key={`next${index}`} marginLeft={2}>
             <Button
-              key="ask-next"
-              label="Ask for one"
-              onPress={() => send($, 'What is the single next action? End with a "Next:" line.')}
+              key={`next-item-${index + 1}`}
+              hotkey={String(index + 1)}
+              plain
+              label={item.label}
+              onPress={() => fill($, item.prompt)}
+            />
+          </Box>
+        ))}
+        {isLoading && (
+          <Box marginLeft={2}>
+            <Text dimColor>more suggestions…</Text>
+          </Box>
+        )}
+        <Box marginLeft={2} columnGap={2} alignItems="center">
+          {items.length > 0 && (
+            <Button
+              hotkey="0"
+              plain
+              label="dismiss"
+              onPress={() => {
+                isDismissed = true
+                $.ui.invalidate('ui.render')
+              }}
             />
           )}
-          <Button
-            key="open-focus"
-            label="Focus"
-            onPress={() => $.ui.open({ id: PANE, title: 'Focus' })}
-          />
+          <Box flexGrow={1} />
+          {/* The counters, each left out when it has nothing to say. */}
+          {task && <Text dimColor>{formatDuration(time - task.startedAt)}</Text>}
+          {todayWins.length > 0 && <Text color="success">✓ {todayWins.length}</Text>}
+          {parkedList.length > 0 && <Text dimColor>{parkedList.length} parked</Text>}
+          <Button key="open-focus" label="Focus" onPress={() => $.ui.open({ id: PANE, title: 'Focus' })} />
         </Box>
-        {beneath}
       </Box>
     )
   })

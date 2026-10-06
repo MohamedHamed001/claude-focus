@@ -3,8 +3,6 @@
 import { expect, test } from 'claude-code/testing'
 
 import {
-  BREAK_MS,
-  bandFor,
   createdTaskId,
   extractEstimateMinutes,
   extractNext,
@@ -107,43 +105,4 @@ test('over-estimate appears only once the estimate has passed', () => {
   expect(overEstimateMs(task, 10 * MINUTE)).toBe(null)
   expect(overEstimateMs(task, 47 * MINUTE)).toBe(32 * MINUTE)
   expect(overEstimateMs({ ...task, estimateMinutes: null }, 47 * MINUTE)).toBe(null)
-})
-
-const BASE = {
-  hasReply: true,
-  next: 'run the tests',
-  current: { title: 'fix the frontend start', startedAt: 0, estimateMinutes: null },
-  lastActivityAt: 0,
-  now: 5 * MINUTE,
-  isWorking: false,
-  hasExtras: false,
-}
-
-test('band: normally shows the pinned next action', () => {
-  expect(bandFor(BASE)).toEqual({ kind: 'next', next: 'run the tests' })
-})
-
-test('band: warns when the last reply had no next action', () => {
-  expect(bandFor({ ...BASE, next: null })).toEqual({ kind: 'missing' })
-})
-
-test('band: after a break it reminds you what you were doing', () => {
-  expect(bandFor({ ...BASE, now: BREAK_MS + MINUTE })).toEqual({
-    kind: 'welcome',
-    awayMs: BREAK_MS + MINUTE,
-    title: 'fix the frontend start',
-    next: 'run the tests',
-  })
-})
-
-test('band: a long turn is not treated as you being away', () => {
-  expect(bandFor({ ...BASE, now: BREAK_MS + MINUTE, isWorking: true }).kind).toBe('next')
-})
-
-test('band: a fresh session with parked thoughts shows counters only, no warning', () => {
-  expect(bandFor({ ...BASE, hasReply: false, next: null, current: null, hasExtras: true })).toEqual({ kind: 'idle' })
-})
-
-test('band: hidden in a fresh session with nothing to show', () => {
-  expect(bandFor({ ...BASE, hasReply: false, next: null, current: null })).toEqual({ kind: 'hidden' })
 })
