@@ -346,13 +346,13 @@ export const register: Register = (on, options) => {
 
     return (
       <Box flexDirection="column" rowGap={1}>
-        {/* Its own rounded box, one per plugin, so stacked bands stay apart. */}
-        <Box columnGap={1} alignItems="center" borderStyle="round" borderDimColor paddingX={1}>
+        {/* Its own filled card, one per plugin, so stacked bands read as separate. */}
+        <Box columnGap={1} alignItems="center" backgroundColor="userMessageBackground" paddingX={1}>
           <Box width={2}>
             {band.kind === 'missing' ? <Text color="warning">!</Text> : <Text dimColor>→</Text>}
           </Box>
 
-          <Box flexGrow={1} flexShrink={1}>
+          <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
             {band.kind === 'next' && <Text wrap="truncate-end">Next: {band.next}</Text>}
             {band.kind === 'idle' && <Text dimColor>No next action yet</Text>}
             {band.kind === 'missing' && (
@@ -454,7 +454,7 @@ export const register: Register = (on, options) => {
               </Box>
             )}
             <Box columnGap={2} alignItems="center">
-              <Box flexGrow={1} flexShrink={1}>
+              <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
                 <Text>{action ? `Next: ${action}` : 'No next action yet.'}</Text>
               </Box>
               {action && (
@@ -487,7 +487,7 @@ export const register: Register = (on, options) => {
           <Box flexDirection="column" rowGap={1}>
             {parkedList.map((thought, index) => (
               <Box columnGap={1} alignItems="center">
-                <Box flexGrow={1} flexShrink={1}>
+                <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
                   <Text>{thought}</Text>
                 </Box>
                 <Button
@@ -515,7 +515,7 @@ export const register: Register = (on, options) => {
             {todayWins.map(win => (
               <Box columnGap={1}>
                 <Text color="success">✓</Text>
-                <Box flexGrow={1} flexShrink={1}>
+                <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
                   <Text>{win.text}</Text>
                 </Box>
                 <Text dimColor>{clockTime(win.at)}</Text>
