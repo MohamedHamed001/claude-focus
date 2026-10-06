@@ -1,0 +1,16 @@
+{
+    "name":  "claude-focus",
+    "owner":  {
+                  "name":  "Mohamed Hamed"
+              },
+    "plugins":  [
+                    {
+                        "name":  "focus",
+                        "source":  "./",
+                        "description":  "Keeps the one next action pinned above the prompt, with time on task, parked thoughts, today\u0027s wins and a where-you-left-off recap in a pane"
+                    }
+                ],
+    "metadata":  {
+                     "description":  "Keeps the one next action pinned above the prompt, with time on task, parked thoughts, today\u0027s wins and a where-you-left-off recap in a pane"
+                 }
+}
