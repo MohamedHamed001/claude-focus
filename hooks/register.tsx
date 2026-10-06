@@ -369,10 +369,13 @@ export const register: Register = (on, options) => {
             )}
           </Box>
 
-          {/* The three counters. Each is left out when it has nothing to say. */}
-          {task && <Text dimColor>{formatDuration(time - task.startedAt)}</Text>}
-          {todayWins.length > 0 && <Text color="success">✓ {todayWins.length}</Text>}
-          {parkedList.length > 0 && <Text dimColor>{parkedList.length} parked</Text>}
+          {/* The three counters. Each is left out when it has nothing to say. They keep their
+              width (no shrinking): only the next action beside them gets shortened. */}
+          <Box flexShrink={0} columnGap={1}>
+            {task && <Text dimColor>{formatDuration(time - task.startedAt)}</Text>}
+            {todayWins.length > 0 && <Text color="success">✓ {todayWins.length}</Text>}
+            {parkedList.length > 0 && <Text dimColor>{parkedList.length} parked</Text>}
+          </Box>
 
           {action && (
             <Button key="do-it" label="Do it" variant="primary" onPress={() => send($, action)} />
