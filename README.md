@@ -47,27 +47,30 @@ The full text is [`skills/i-have-adhd/SKILL.md`](skills/i-have-adhd/SKILL.md).
 | Switch them off for good | `/config`, then turn off **ADHD writing rules** (the band then only shows a next action when a reply happens to end with `Next:`) |
 | Use the standalone i-have-adhd plugin instead | Keep it installed with its always-on flag; this plugin then does not add the rules a second time |
 
-**The next: list (above the prompt).** Merged from
-[next-steps](https://github.com/anthropics/claude-plugins-community) by Thariq Shihipar (MIT):
+**The next: list (above the prompt).** From
+[next-steps](https://github.com/anthropics/claude-plugins-community) by Thariq Shihipar (MIT),
+as that plugin draws it, plus one row for focus:
 
 ```
 next:
-  1 → run the CAPL export tests and paste the first failing line.
-  2 Summarise the changes
-  3 Review the diff
+  1 Summarise the changes
+  2 Review the diff
+  3 Run the export tests
   0 dismiss                                   47m  ✓ 4  2 parked  [Focus]
 ```
 
 | Item | Comes from |
 |---|---|
-| 1, with `→` | The `Next:` line at the end of Claude's reply (the writing rules ask for one). No extra model call |
-| 2 and 3 | next-steps: after each reply, one forked request (it shares the prompt cache, so it costs one short reply) suggests likely next prompts, including your skills and slash commands |
+| 1 to 3 | next-steps: after each reply, one forked request (it shares the prompt cache, so it costs one short reply) suggests likely next prompts, including your skills and slash commands |
 | 0 | Hides the list until the next reply |
 | Last row | Time on task, today's wins, parked thoughts, and the Focus button |
 
 Pressing a number puts that prompt in the prompt box as a draft you can edit and send; nothing
 is sent for you. The top item is also offered as the prompt box's dim Tab-to-take suggestion.
 The list hides while Claude is working.
+
+Claude's own `Next:` line (the writing rules ask for one) stays where it is, at the end of the
+reply; the Focus pane shows it under **Now**.
 
 Settings (`/config`): **Shortest answer to suggest after** (default 80 characters) and **Suggest
 skills and slash commands** (default on).

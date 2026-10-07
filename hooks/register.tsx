@@ -34,7 +34,7 @@ import {
   updateTask,
   winsToday,
 } from './logic'
-import { MAX_SUGGESTIONS, clean, forkPrompt, parseSuggestions, skillList } from './nextsteps'
+import { forkPrompt, parseSuggestions, skillList } from './nextsteps'
 import type { Suggestion } from './nextsteps'
 
 const PANE = 'focus'
@@ -69,10 +69,6 @@ let adhdRules = ''
 type SuggestionView = { kind: 'hidden' } | { kind: 'loading'; turnId: string } | { kind: 'offer'; items: Suggestion[] }
 let suggestions: SuggestionView = { kind: 'hidden' }
 let isDismissed = false
-// Item 1 (Claude's own next action) plus next-steps' suggestions, at most this many.
-const MAX_ITEMS = MAX_SUGGESTIONS
-const NEXT_LABEL_MAX = 72
-const PROMPT_MAX = 600
 
 /** Put a prompt in the prompt box as the person's draft, to edit and send. */
 function fill($: EngineInterface, text: string) {
@@ -88,7 +84,7 @@ function fill($: EngineInterface, text: string) {
  * After a reply: ask a fork of the session for likely next prompts (next-steps). The fork
  * shares the prompt cache, so it costs one short reply. Detached: the turn never waits.
  */
-function suggestNext($: EngineInterface, turnId: string, action: string | null, options: Record<string, unknown>) {
+function suggestNext($: EngineInterface, turnId: string, options: Record<string, unknown>) {
   suggestions = { kind: 'loading', turnId }
   $.ui.invalidate('ui.render')
   void (async () => {
@@ -100,15 +96,14 @@ function suggestNext($: EngineInterface, turnId: string, action: string | null, 
       const reply = await $.model.fork({ prompt: forkPrompt(skills) })
       items = reply.isAnswered ? parseSuggestions(reply.text, known) : []
     } catch {
-      // No suggestions this time; Claude's own next action still shows.
+      // No suggestions this time.
     }
     // A newer turn started (or another completed) while we waited: drop ours.
     if (suggestions.kind !== 'loading' || suggestions.turnId !== turnId) return
     suggestions = items.length === 0 ? { kind: 'hidden' } : { kind: 'offer', items }
     $.ui.invalidate('ui.render')
     // The top item is also the composer's dim Tab-to-take ghost text.
-    const top = action ?? items[0]?.prompt
-    if (top) void $.prompt.suggest({ text: top }).catch(() => undefined)
+    if (items[0] !== undefined) void $.prompt.suggest({ text: items[0].prompt }).catch(() => undefined)
   })()
 }
 
@@ -323,7 +318,7 @@ export const register: Register = (on, options) => {
         isDismissed = false
         const minChars = typeof options?.minAnswerChars === 'number' ? options.minAnswerChars : 80
         if (e.reason === 'answer' && e.answer.trim().length >= minChars) {
-          suggestNext($, e.turnId, await read($, next), options ?? {})
+          suggestNext($, e.turnId, options ?? {})
         }
       } catch (error) {
         await report($, 'turn.complete', error)
@@ -377,10 +372,10 @@ export const register: Register = (on, options) => {
     return ran
   })
 
-  // The band: one "next:" list, merged from next-steps (MIT, see ../NOTICE.md). Item 1 is
-  // the Next: line from Claude's own reply (no extra model call); the rest are next-steps'
-  // suggestions from one forked request. A press puts the prompt in the prompt box as an
-  // editable draft; 0 dismisses. The last row carries the counters and the Focus button.
+  // The band: next-steps' "next:" list (MIT, see ../NOTICE.md), as that plugin draws it: up
+  // to three suggested prompts from one forked request; a press puts the prompt in the
+  // prompt box as an editable draft; 0 dismisses. Claude's own Next: line stays in the
+  // reply (and in the Focus pane). The last row carries the counters and the Focus button.
   // Drawn under what other mods draw, nearest the prompt.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next_) => {
     const beneath = await next_(e)
@@ -388,7 +383,6 @@ export const register: Register = (on, options) => {
       return beneath
     }
 
-    const action = await read($, next)
     const task = await read($, current)
     const time = await read($, now)
     const todayWins = await read($, wins)
@@ -396,15 +390,7 @@ export const register: Register = (on, options) => {
     const { Box, Button, Text } = $.ui.resolve(e)
 
     const isListShown = !e.props.isWorking && !isDismissed
-    const items: Array<{ label: string; prompt: string }> = []
-    if (isListShown && action) {
-      items.push({ label: `→ ${clean(action, NEXT_LABEL_MAX)}`, prompt: clean(action, PROMPT_MAX) })
-    }
-    if (isListShown && suggestions.kind === 'offer') {
-      for (const item of suggestions.items) {
-        if (items.length < MAX_ITEMS && !items.some(one => one.prompt === item.prompt)) items.push(item)
-      }
-    }
+    const items = isListShown && suggestions.kind === 'offer' ? suggestions.items : []
     const isLoading = isListShown && suggestions.kind === 'loading'
     const hasCounters = Boolean(task) || todayWins.length > 0 || parkedList.length > 0
     if (items.length === 0 && !isLoading && !hasCounters) {
@@ -429,7 +415,7 @@ export const register: Register = (on, options) => {
         ))}
         {isLoading && (
           <Box marginLeft={2}>
-            <Text dimColor>more suggestions…</Text>
+            <Text dimColor>next steps…</Text>
           </Box>
         )}
         <Box marginLeft={2} columnGap={2} alignItems="center">

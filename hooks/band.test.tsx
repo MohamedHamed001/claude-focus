@@ -47,21 +47,21 @@ const SUGGESTED = JSON.stringify([
 /** Let the detached fork finish. */
 const settle = () => new Promise(resolve => setTimeout(resolve, 20))
 
-test("one next: list: Claude's next action first, then next-steps' suggestions", async ($, on) => {
+test("the next: list shows next-steps' suggestions; Claude's Next line stays in the reply", async ($, on) => {
   fakeEngine(on, SUGGESTED, [])
   await $.turn.complete(REPLY as never)
   await settle()
 
   const ui = await $.ui.mount(BAND)
   expect((await ui.find({ text: /next:/ })) !== undefined).toBe(true)
-  expect((await ui.find({ text: /→ run the CAPL export tests/ })) !== undefined).toBe(true)
   expect((await ui.find({ text: /Summarise the changes/ })) !== undefined).toBe(true)
   expect((await ui.find({ text: /Review the diff/ })) !== undefined).toBe(true)
+  expect((await ui.find({ text: /run the CAPL export tests/ })) === undefined).toBe(true) // not in the band
   expect((await ui.find({ key: 'open-focus' })) !== undefined).toBe(true)
   expect((await ui.find({ text: /OTHERS/ })) !== undefined).toBe(true) // what others drew stays
 })
 
-test("pressing 1 puts Claude's next action in the prompt box as a draft", async ($, on) => {
+test('pressing 1 drafts the first suggestion, and the list is dismissed', async ($, on) => {
   const filled: string[] = []
   fakeEngine(on, SUGGESTED, filled)
   await $.turn.complete(REPLY as never)
@@ -69,22 +69,10 @@ test("pressing 1 puts Claude's next action in the prompt box as a draft", async 
 
   const ui = await $.ui.mount(BAND)
   await ui.press({ key: 'next-item-1' })
-  expect(filled).toEqual(['run the CAPL export tests and paste the first failing line.'])
-
-  // The list is dismissed once a draft is taken.
-  const after = await $.ui.mount(BAND)
-  expect((await after.find({ text: /→ run the CAPL/ })) === undefined).toBe(true)
-})
-
-test('pressing 2 drafts the first next-steps suggestion', async ($, on) => {
-  const filled: string[] = []
-  fakeEngine(on, SUGGESTED, filled)
-  await $.turn.complete(REPLY as never)
-  await settle()
-
-  const ui = await $.ui.mount(BAND)
-  await ui.press({ key: 'next-item-2' })
   expect(filled).toEqual(['Summarise the uncommitted changes'])
+
+  const after = await $.ui.mount(BAND)
+  expect((await after.find({ text: /Summarise the changes/ })) === undefined).toBe(true)
 })
 
 test('the pane draws on the desktop surface', async ($, on) => {

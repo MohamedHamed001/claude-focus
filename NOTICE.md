@@ -34,9 +34,8 @@ What comes from it:
 - `hooks/nextsteps.ts`: its fork prompt, the parsing of the reply, and the cleaning of model text
   before it reaches the screen or the prompt box, unchanged apart from `export`.
 - `hooks/register.tsx`: the detached fork after each reply, the numbered list with `0 dismiss`,
-  filling the prompt box as a draft, and the Tab-to-take suggestion. Changes: item 1 is Claude's
-  own `Next:` line; the list's last row carries focus's counters and Focus button; its two
-  settings are focus's settings.
+  filling the prompt box as a draft, and the Tab-to-take suggestion. Changes: the list's last
+  row carries focus's counters and Focus button; its two settings are focus's settings.
 
 ## i-have-adhd
 
