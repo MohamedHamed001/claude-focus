@@ -56,7 +56,7 @@ next:
   1 Summarise the changes
   2 Review the diff
   3 Run the export tests
-  0 dismiss  simpler  example  where it fits  47m  ✓ 4  2 parked  [Focus]
+  0 dismiss     explain: [simpler] [example] [where it fits]  47m  ✓ 4  2 parked  [Focus]
 ```
 
 | Item | Comes from |

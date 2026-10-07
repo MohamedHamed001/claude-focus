@@ -450,11 +450,16 @@ export const register: Register = (on, options) => {
               }}
             />
           )}
-          {hasExplain &&
-            EXPLAIN.map(one => (
-              <Button key={`explain-${one.label}`} plain label={one.label} onPress={() => send($, one.prompt)} />
-            ))}
           <Box flexGrow={1} />
+          {/* The explain buttons: outlined like Focus, so they do not read as list items. */}
+          {hasExplain && (
+            <Box columnGap={1} alignItems="center">
+              <Text dimColor>explain:</Text>
+              {EXPLAIN.map(one => (
+                <Button key={`explain-${one.label}`} label={one.label} onPress={() => send($, one.prompt)} />
+              ))}
+            </Box>
+          )}
           {/* The counters, each left out when it has nothing to say. */}
           {task && <Text dimColor>{formatDuration(time - task.startedAt)}</Text>}
           {todayWins.length > 0 && <Text color="success">✓ {todayWins.length}</Text>}
