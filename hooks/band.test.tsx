@@ -86,3 +86,27 @@ test('the pane draws on the desktop surface', async ($, on) => {
   expect((await ui.find({ text: /Done today/ })) !== undefined).toBe(true)
   expect((await ui.find({ key: 'recap' })) !== undefined).toBe(true)
 })
+
+test('a long reply gets the explain buttons; a short one does not; simpler sends its prompt', async ($, on) => {
+  const sent: string[] = []
+  fakeEngine(on, '[]', [])
+  on('prompt.submit', (_: unknown, e: { text: string }) => {
+    sent.push(e.text)
+
+    return { text: e.text }
+  })
+
+  await $.turn.complete(REPLY as never)
+  await settle()
+  const short = await $.ui.mount(BAND)
+  expect((await short.find({ key: 'explain-simpler' })) === undefined).toBe(true)
+
+  await $.turn.complete({ ...REPLY, turnId: 't2', answer: 'A long explanation. '.repeat(40) } as never)
+  await settle()
+  const long = await $.ui.mount(BAND)
+  expect((await long.find({ key: 'explain-example' })) !== undefined).toBe(true)
+  await long.press({ key: 'explain-simpler' })
+  await settle()
+  expect(sent.length).toBe(1)
+  expect(sent[0]).toContain('Start again from the beginning')
+})

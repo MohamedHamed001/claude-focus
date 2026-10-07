@@ -70,6 +70,24 @@ type SuggestionView = { kind: 'hidden' } | { kind: 'loading'; turnId: string } |
 let suggestions: SuggestionView = { kind: 'hidden' }
 let isDismissed = false
 
+// The explain buttons: shown under a long reply, each sends one fixed follow-up. The prompts
+// say "restart", not "rephrase": a second explanation in the same words rarely helps.
+const EXPLAIN_MIN_CHARS = 600
+const EXPLAIN = [
+  {
+    label: 'simpler',
+    prompt:
+      'I did not follow that. Start again from the beginning: say what it is in one sentence, why we ' +
+      'need it, and give one concrete example. Define each technical term the first time it appears.',
+  },
+  { label: 'example', prompt: 'Show me one concrete example of that, step by step, with real values from this project.' },
+  {
+    label: 'where it fits',
+    prompt: 'Where does that fit in the whole flow? Say what comes before it, what comes after it, and which file it lives in.',
+  },
+] as const
+let isLastReplyLong = false
+
 /** Put a prompt in the prompt box as the person's draft, to edit and send. */
 function fill($: EngineInterface, text: string) {
   isDismissed = true
@@ -316,6 +334,7 @@ export const register: Register = (on, options) => {
       try {
         await onReply($, e.answer)
         isDismissed = false
+        isLastReplyLong = e.reason === 'answer' && e.answer.trim().length >= EXPLAIN_MIN_CHARS
         const minChars = typeof options?.minAnswerChars === 'number' ? options.minAnswerChars : 80
         if (e.reason === 'answer' && e.answer.trim().length >= minChars) {
           suggestNext($, e.turnId, options ?? {})
@@ -393,7 +412,8 @@ export const register: Register = (on, options) => {
     const items = isListShown && suggestions.kind === 'offer' ? suggestions.items : []
     const isLoading = isListShown && suggestions.kind === 'loading'
     const hasCounters = Boolean(task) || todayWins.length > 0 || parkedList.length > 0
-    if (items.length === 0 && !isLoading && !hasCounters) {
+    const hasExplain = isListShown && isLastReplyLong
+    if (items.length === 0 && !isLoading && !hasCounters && !hasExplain) {
       return beneath
     }
 
@@ -430,6 +450,10 @@ export const register: Register = (on, options) => {
               }}
             />
           )}
+          {hasExplain &&
+            EXPLAIN.map(one => (
+              <Button key={`explain-${one.label}`} plain label={one.label} onPress={() => send($, one.prompt)} />
+            ))}
           <Box flexGrow={1} />
           {/* The counters, each left out when it has nothing to say. */}
           {task && <Text dimColor>{formatDuration(time - task.startedAt)}</Text>}

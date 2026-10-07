@@ -56,13 +56,14 @@ next:
   1 Summarise the changes
   2 Review the diff
   3 Run the export tests
-  0 dismiss                                   47m  ✓ 4  2 parked  [Focus]
+  0 dismiss  simpler  example  where it fits  47m  ✓ 4  2 parked  [Focus]
 ```
 
 | Item | Comes from |
 |---|---|
 | 1 to 3 | next-steps: after each reply, one forked request (it shares the prompt cache, so it costs one short reply) suggests likely next prompts, including your skills and slash commands |
 | 0 | Hides the list until the next reply |
+| simpler, example, where it fits | Shown after a reply of 600 characters or more. Each sends one fixed follow-up: start the explanation again from what it is, show one concrete example, or say where it sits in the whole flow |
 | Last row | Time on task, today's wins, parked thoughts, and the Focus button |
 
 Pressing a number puts that prompt in the prompt box as a draft you can edit and send; nothing
